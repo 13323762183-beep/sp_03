@@ -1,0 +1,9 @@
+.vscode
+build
+install
+log
+**/__pycache__/
+.cache/
+.clangd
+compile_commands.json
+src/sp_nav_sim/sp_nav_sim/sim/dyn_core.c

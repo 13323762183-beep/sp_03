@@ -1,0 +1,14 @@
+<library path="controller_plugins">
+  <class
+    name="PidController"
+    type="pid_controller::PidController"
+    base_class_type="sp_controller_server::ControllerPlugin">
+    <description>Pure-pursuit + lag-prediction path tracking controller with curvature-limited speed profile.</description>
+  </class>
+  <class
+    name="LqrController"
+    type="lqr_controller::LqrController"
+    base_class_type="sp_controller_server::ControllerPlugin">
+    <description>LQR path tracking controller (bonus): models the chassis first-order velocity lag in the state space and uses the Riccati feedback gain.</description>
+  </class>
+</library>

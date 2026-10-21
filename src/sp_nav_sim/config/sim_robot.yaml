@@ -1,0 +1,37 @@
+sim_robot_node:
+  ros__parameters:
+    map_yaml: "sp_nav_bringup/map/maze_map.yaml"
+    topic: "/robots"
+    frame_id: "map"
+    odom_topic: "/Odometry"
+    odom_frame_id: "lidar_odom"
+    local_costmap_topic: "/local_costmap/costmap"
+    local_costmap_width_m: 4.0
+    local_costmap_height_m: 4.0
+    robot_id: 1
+    init_x: 0.900
+    init_y: 0.900
+    tf_child_frame_id: "base_link"
+    cmd_vel_topic: "/sentry/cmd_vel"
+    cmd_vel_timeout: 5.0
+    gimbal_topic: "/gimbal/control"
+    scan_speed: 1.0
+    chassis_topic: "/chassis/mode"
+    robot_ids: "2,3"
+    init_xs: "3.90,9.34"
+    init_ys: "7.20,3.92"
+    tf_child_frame_ids: "base_link_2,base_link_3"
+    v_max: 2.0
+    a_max: 2.0
+    robot_radius: 0.25
+    margin: 0.05
+    d_safe: 0.70
+    w: 12.0
+    publish_hz: 30.0
+    pub_hz: 30.0
+    odom_hz: 30.0
+    window_width: 1600
+    window_height: 1000
+    treat_unknown_as_occupied: false
+    pos_noise_std: 0.05
+    seed: 0

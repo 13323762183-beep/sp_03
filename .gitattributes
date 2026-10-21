@@ -1,0 +1,5 @@
+# 统一用 LF，避免在 Windows 上 checkout 后脚本/配置带 CRLF
+* text=auto eol=lf
+*.so binary
+*.pgm binary
+*.png binary

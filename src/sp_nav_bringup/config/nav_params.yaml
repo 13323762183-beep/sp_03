@@ -1,0 +1,145 @@
+# ============================================================================
+# 27 算法组导航方向招新大作业 —— 导航参数
+# 说明：
+#   * esdf_map_publisher / planner_server / controller_server 三组参数
+#     原本全部为空，这里按“迷宫场景 + 全向底盘”对齐话题、坐标系与代价地图。
+#   * 话题、坐标系全部来自 sp_nav_sim（/Odometry、lidar_odom、/sentry/cmd_vel）
+#     与 sp_nav_bringup 的 RViz 配置（/global_costmap、/global_path）。
+# ============================================================================
+
+# ----------------------------------------------------------------------------
+# ESDF / 全局代价地图
+#   robot_radius = 0.25 m（车体半边长），margin = 0.10 m
+#   => 距离障碍物 < 0.35 m 的栅格视为致命障碍（cost=100），A* 不会经过。
+#   d_safe = 0.70 m 之外 cost=0，中间按 w*(d_safe-d)^2 做软惩罚，
+#   让 A* 尽量贴着通道中线走（提升跟踪精度、留出转弯余量）。
+# ----------------------------------------------------------------------------
+esdf_map_publisher:
+  ros__parameters:
+    map_yaml: "sp_nav_bringup/map/maze_map.yaml"
+    frame_id: "map"
+    publish_rate_hz: 2.0
+    unknown_as_obstacle: false
+    robot_radius: 0.25
+    margin: 0.10
+    d_safe: 0.70
+    w: 12.0
+    unknown_cost: 0
+    visualize_esdf: false
+
+# ----------------------------------------------------------------------------
+# A* 全局规划
+#   costmap_topic      : ESDF 发布的全图代价地图
+#   local_costmap_topic: 仿真发布的局部代价地图（4m x 4m），会和全局图取 max 融合
+#   path_topic         : 规划结果，controller_server 订阅同一个话题做跟踪
+# ----------------------------------------------------------------------------
+planner_server:
+  ros__parameters:
+    costmap_topic: "/global_costmap"
+    local_costmap_topic: "/local_costmap/costmap"
+    path_topic: "/global_path"
+    plugin_name: "AStar"
+    plugin_type: "sp_global_planner/AStarPlanner"
+
+    AStar:
+      lethal_cost: 100        # cost >= 100 的栅格不可通行
+      cost_weight: 2.0        # 软代价权重：越大越愿意绕远走通道中线
+
+# ----------------------------------------------------------------------------
+# 控制器 server + 路径跟踪插件
+#   odom_topic / odom_frame_id / base_frame_id 与仿真 TF 树一致：
+#       map --(静态)--> lidar_odom --(动态)--> base_link
+# ----------------------------------------------------------------------------
+controller_server:
+  ros__parameters:
+    local_path_topic: "/global_path"
+    odom_topic: "/Odometry"
+    odom_frame_id: "lidar_odom"
+    map_frame_id: "map"
+    cmd_vel_topic: "/sentry/cmd_vel"
+    base_frame_id: "base_link"
+    control_frequency: 50.0
+
+    plugin_name: "PidController"
+    plugin_type: "PidController"
+
+    PidController:
+      base_frame_id: "base_link"
+      # --- 实测标定（本机 WSL Ubuntu22.04 + 仿真器）---
+      max_linear_vel: 1.35    # 底盘带小陀螺自旋时实测可达约 1.38 m/s，别贪
+      lat_acc: 1.8            # 过弯向心加速度上限（过弯速度=sqrt(a_lat/R)），调大实测会切弯撞墙，调小反而易蹭墙
+      dec_acc: 1.2            # 速度剖面刹车减速度
+      lookahead_min: 0.30     # 前视距离下限 m
+      lookahead_max: 0.50     # 前视距离上限 m
+      lookahead_gain: 0.15    # 前视距离 = min + gain * v
+      # --- 参考路径稳定性 ---
+      ref_dev_tol: 0.60       # 新规划偏离参考路径超过该值才换参考（抑制 10Hz 重规划抖动）
+      lat_gain: 0.0           # 横向误差 P（实测加大会振荡，默认关；纯跟踪已够）
+      lat_damp: 0.0           # 横向速度 D（实测速度有滞后，D 变反阻尼，默认关）
+      predict_dt: 0.15        # 位置预测时间 s（补偿底盘速度响应滞后，抑制摆动）
+      # --- 可选增强（0=关闭）---
+      turn_rate_max: 0.0      # 指令方向最大转速 rad/s（0=不限）
+      dir_adapt_gain: 0.10    # 方向偏差自适应增益（抵消底盘系统性方向偏差）
+      goal_tolerance: 0.05    # 距路径终点小于该值输出零速，稳稳停住
+      min_speed: 0.05         # 速度剖面下限，避免原地不动
+      smooth_passes: 2        # 平滑迭代次数（圆角化直角弯）
+      fine_traj: false        # 精细轨迹模式（加分项）：Chaikin+重采样+三点曲率；窄通道直角弯下默认关
+      publish_marker: true    # 发布 /controller_marker（车体 + 速度箭头）
+
+    # ------------------------------------------------------------------
+    # 加分项：LQR 跟踪器。轨迹层与 PidController 完全相同，只换控制律。
+    # 切换方式：plugin_name / plugin_type 都改成 "LqrController"
+    # ------------------------------------------------------------------
+    LqrController:
+      base_frame_id: "base_link"
+      max_linear_vel: 1.35
+      lat_acc: 1.8
+      dec_acc: 1.2
+      lookahead_min: 0.45     # LQR 不使用前视（方向取投影点切向），仅保留以复用基类参数
+      lookahead_max: 0.75
+      lookahead_gain: 0.15
+      ref_dev_tol: 0.60
+      smooth_passes: 2
+      goal_tolerance: 0.05
+      min_speed: 0.05
+      publish_marker: true
+      # --- LQR 专有 ---
+      tau: 0.10               # 底盘速度环时间常数 s（阶跃实测 0.08~0.15）
+      q_pos: 6.0              # 位置误差权重（12 太猛顶墙；4 贴线不够，取 6）
+      q_vel: 1.0              # 速度误差权重
+      r_ctrl: 2.0             # 控制量权重（越大越平顺）
+      pos_err_clip: 0.50      # 位置误差限幅 m（大偏差时不让反馈项顶爆控制量）
+      ctrl_dt: 0.02           # 离散化步长，与控制周期 50Hz 一致
+      look_gain: 0.10         # 参考点前视距离随速度的增益 s
+      cmd_smooth: 0.04        # 指令一阶低通时间常数 s（抑制方向抖动）
+
+# ----------------------------------------------------------------------------
+# 上层决策（行为树 click_nav.xml）
+# ----------------------------------------------------------------------------
+sp_decision:
+  ros__parameters:
+    tick_rate_hz: 10.0
+    tree_files:
+      - "sp_decision/decision_trees/click_nav.xml"
+    bt_plugins:
+      - "nav_to_pose_bt_node"
+      - "condition_judge_bt_node"
+      - "wait_duration_bt_node"
+      - "gimbal_control_bt_node"
+      - "chassis_mode_bt_node"
+      - "set_double_bt_node"
+
+# ----------------------------------------------------------------------------
+# 下层导航行为树（default_nav_with_fallback.xml）
+# ----------------------------------------------------------------------------
+nav_interface_node:
+  ros__parameters:
+    default_bt_xml: "sp_nav_bt/nav_bt/default_nav_with_fallback.xml"
+    enable_bt_cout_logger: false
+    bt_plugins:
+      - "nav_compute_path_service"
+      - "nav_state_track"
+      - "nav_rate_control"
+      - "nav_repeat_sequence"
+      - "nav_get_pose"
+      - "nav_set_control_enable"

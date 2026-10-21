@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<root BTCPP_format="3">
+  <TreeNodesModel>
+    <Control ID="nav_RepeatSequence"/>
+    <Decorator ID="nav_RateControl">
+      <input_port name="hz" default="10.0" type="double">子节点 tick 频率 Hz</input_port>
+    </Decorator>
+    <Action ID="nav_GetPose">
+      <input_port name="parent_frame" default="map" type="std::string">父坐标系（参考系）</input_port>
+      <input_port name="child_frame" default="base_link" type="std::string">子坐标系（机器人）</input_port>
+      <input_port name="timeout_ms" default="100.0" type="double">等待 TF 的超时时间 ms</input_port>
+      <output_port name="pose" type="geometry_msgs::msg::PoseStamped">child 在 parent 下的位姿</output_port>
+    </Action>
+    <Action ID="nav_ComputePathService">
+      <input_port name="service_name" default="make_plan" type="std::string">全局规划 ROS 服务名</input_port>
+      <input_port name="start" type="geometry_msgs::msg::PoseStamped">起点位姿</input_port>
+      <input_port name="goal" type="geometry_msgs::msg::PoseStamped">终点位姿</input_port>
+      <output_port name="path" type="nav_msgs::msg::Path">规划得到的全局路径</output_port>
+    </Action>
+    <Action ID="nav_SetControlEnable">
+      <input_port name="enable" type="bool">true=启用控制器，false=停控并输出零速</input_port>
+      <input_port name="service_name" default="/set_control_enable" type="std::string">SetBool 服务名</input_port>
+      <input_port name="bb_key" default="controller_enabled" type="std::string">记录使能状态的 blackboard key；相同 key 可跳过重复调用</input_port>
+    </Action>
+    <Action ID="nav_NavStateTrack">
+      <input_port name="goal_pose" type="geometry_msgs::msg::PoseStamped">导航目标位姿</input_port>
+      <input_port name="goal_tolerance" default="0.2" type="double">到达判据：与目标欧氏距离阈值 m</input_port>
+      <output_port name="remaining_distance" type="double">距目标剩余距离 m</output_port>
+      <output_port name="elapsed_time" type="double">本段任务已用时间 s</output_port>
+    </Action>
+  </TreeNodesModel>
+</root>

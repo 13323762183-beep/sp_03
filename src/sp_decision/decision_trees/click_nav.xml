@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<root BTCPP_format="3"
+      main_tree_to_execute="ClickNavTree">
+  <BehaviorTree ID="ClickNavTree">
+    <ConditionJudge bb_vars="clicked_point_update;nav_active"
+                    conditions="clicked_point_update>0; nav_active>0; true">
+      <Sequence>
+        <SetDouble key="clicked_point_update" value="0.0"/>
+        <SetDouble key="nav_active"           value="1.0"/>
+      </Sequence>
+      <Sequence>
+        <ForceSuccess>
+          <Sequence>
+            <NavToPose goal_pose=""
+                       goal_pose_stamped="{clicked_point}"/>
+            <ChassisMode mode="0"
+                         is_stop="false"
+                         rotate_velocity="3.0"/>
+            <GimbalControl mode="0"/>
+          </Sequence>
+        </ForceSuccess>
+        <SetDouble key="nav_active" value="0.0"/>
+      </Sequence>
+      <WaitDuration duration="-1"/>
+    </ConditionJudge>
+  </BehaviorTree>
+
+  <TreeNodesModel>
+    <Control ID="ConditionJudge">
+      <input_port name="bb_vars" type="std::string">分号分隔的 blackboard 变量名，供条件表达式引用</input_port>
+      <input_port name="conditions" type="std::string">分号分隔的 exprtk 条件，与子节点一一对应；为真则执行该子树</input_port>
+    </Control>
+    <Action ID="NavToPose">
+      <input_port name="goal_pose" type="std::string">目标坐标字符串，格式 "(x,y)"；与 goal_pose_stamped 二选一</input_port>
+      <input_port name="goal_pose_stamped" type="geometry_msgs::msg::PoseStamped">blackboard 上的 PoseStamped；优先于 goal_pose</input_port>
+    </Action>
+    <Action ID="ChassisMode">
+      <input_port name="mode" default="0" type="int">0=小陀螺，1=底盘跟随，2=变速小陀螺</input_port>
+      <input_port name="is_stop" default="false" type="bool">true=停止底盘运动</input_port>
+      <input_port name="rotate_velocity" default="0.0" type="float">旋转速度 rad/s；mode=0 恒速，mode=2 变速基准</input_port>
+    </Action>
+    <Action ID="GimbalControl">
+      <input_port name="mode" default="0" type="int">0=全向扫描，1=范围扫描，2=yaw锁定，3=yaw指定角度</input_port>
+      <input_port name="big_yaw" default="0.0" type="float">yaw 目标角 deg，仅 mode=3 生效</input_port>
+      <input_port name="yaw_lower_limit" default="0.0" type="float">yaw 范围下限 deg，仅 mode=1 生效</input_port>
+      <input_port name="yaw_upper_limit" default="0.0" type="float">yaw 范围上限 deg，仅 mode=1 生效</input_port>
+    </Action>
+    <Action ID="SetDouble">
+      <input_port name="key" type="std::string">要写入的 blackboard key</input_port>
+      <input_port name="value" default="0.0" type="double">写入的浮点值</input_port>
+    </Action>
+    <Action ID="WaitDuration">
+      <input_port name="duration" default="0.0" type="float">等待时长 s；&lt;0 表示永久 RUNNING</input_port>
+    </Action>
+  </TreeNodesModel>
+</root>
